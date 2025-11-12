@@ -1,0 +1,177 @@
+---
+title: "944 ASSIGNMENT 111"
+author: "Hellen Ndwiga"
+date: "2025-11-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Reg.No: SD18/77485/25
+
+### Q1. A health research team is developing a model to predict the likelihood of cardiovascular
+disease (CVD) over a 10-year period using a dataset containing patient demographics, clinical
+measurements, and lifestyle factors (e.g., age, cholesterol levels, blood pressure, smoking status).
+
+
+i.Explain the key differences between a Logistic Regression model and a Decision
+       Tree model in terms of their structure, how they make predictions, and their inherent
+       interpretability.
+
+### A logistic regression model entails the following:-
+
+a) This is a parametric model that uses a logistic function (sigmoid) to model the probability of the outcome. 
+
+b) It calculates a linear combination of input features (e.g., z = β₀ + β₁*age + β₂*cholesterol ...). It also passes this sum through the sigmoid function to output a probability between 0 and 1. It Classifies based on a threshold (typically 0.5).
+
+c)  Highly Interpretable. It provides coefficients (β) for each feature, which indicate the direction and magnitude of the relationship with the target. 
+
+
+### A decision Tree model entails the following:-
+
+a)  A non-parametric model with a hierarchical, tree-like structure of nodes (decisions) and leaves (outcomes). It creates a complex, axis-parallel, step-like decision boundary.
+
+b) Starts at the root node and applies a series of if-then-else rules based on feature values (e.g., Is age > 50?, Is cholesterol > 200?). Follows the path down the tree based on the answers. Reaches a leaf node which provides the final classification (or probability).
+
+c)  Intuitively Interpretable. The model's logic is transparent and can be visualized as a flowchart. This white-box nature allows doctors to trace the exact reasoning for a specific prediction. However, deep trees can become complex and less interpretable.
+
+
+ii) Outline the steps you would follow to build and evaluate a Support Vector Machine
+(SVM) model for this binary classification task. Your answer should specifically address
+the choice of kernel, the critical importance of data preprocessing for SVM, and the
+evaluation metrics you would use
+
+### 1) Data Preprocessing 
+
+* Handling Missing Values: Impute or remove missing values in features like cholesterol or blood pressure.
+
+* Feature Scaling: This is absolutely critical. SVMs are sensitive to the scale of features because they rely on distance calculations (in the kernel space) to define the margin. Features like age and cholesterol are on different scales and must be standardized (e.g., using StandardScaler to give them a mean of 0 and standard deviation of 1).
+
+* Encoding Categorical Variables: Convert categorical variables like smoking_status into numerical format using one-hot encoding.
+
+### 2) Train-Test Split
+
+Split the dataset into a training set (e.g., 70%) and a hold-out test set (e.g., 30%) to evaluate the final model's performance on unseen data.
+
+### 3) Model Training & Hyperparameter Tuning
+
+-Choice of Kernel: The choice depends on the suspected relationship in the data.
+
+-Linear Kernel: A good starting point. It assumes a linear decision boundary. It's fast, less prone to overfitting, and very interpretable.
+
+-RBF (Radial Basis Function) Kernel: The most common non-linear kernel. It can model complex, non-linear relationships and is a powerful default choice when linearity is not assumed.
+
+-Use techniques like Grid Search or Randomized Search with Cross-Validation (e.g., 5-fold CV) on the training set to find the optimal hyperparameters.
+
+
+
+### 4) Model Evaluation
+
+Use the optimized model to make predictions on the hold-out test set.
+
+*Evaluation Metrics
+
+-Confusion Matrix: To visualize True Positives, False Positives, True Negatives, and False Negatives.
+
+-Primary Metric: AUC-ROC (Area Under the ROC Curve) excellent for binary classification as it shows the model's ability to distinguish between classes (CVD vs. no CVD) across all classification thresholds. It is especially useful for imbalanced datasets.
+
+-Secondary Metrics
+
+a) Precision: What proportion of predicted CVD cases are actual CVD? (Important if the cost of false alarms is high).
+
+b) Recall (Sensitivity): What proportion of actual CVD cases did we correctly predict? (Crucial for a health task, as missing a true case—a false negative—is very costly).
+
+c) F1-Score: The harmonic mean of Precision and Recall, providing a single balanced metric.
+
+
+iii. The initial SVM model with a linear kernel achieves mediocre performance, suggesting the
+relationship between features and the target may be non-linear. Describe one strategy to
+enhance the model's capability without switching the algorithm entirely, and one reason
+why you might choose a tree-based ensemble method like XGBoost instead.
+
+
+
+If the linear kernel performs poorly,a switch to a non-linear kernel is made, specifically the RBF (Radial Basis Function) kernel.
+
+The RBF kernel projects the data into a higher-dimensional feature space where a non-linear relationship in the original space can become linearly separable. This allows the SVM to learn much more complex, non-linear decision boundaries without requiring manual feature engineering.
+
+Implementation
+This is a simple change in the model's configuration. However, it introduces the gamma hyperparameter, making the model more complex and computationally expensive to tune.
+
+Reason to Choose a Tree-Based Ensemble Method like XGBoost
+
+XGBoost has robustness to data characteristics and automatic feature handling. It's inherently 
+
+less sensitive to the scale and distribution of features. It does not require feature scaling 
+
+as a critical preprocessing step, unlike SVM. Furthermore, it can natively handle missing 
+
+values in many implementations and can model complex non-linear relationships and feature 
+
+interactions automatically.
+
+
+### QUESTION TWO
+
+a) comparison of K-NN and Logistic regression
+
+K-NN Makes predictions by identifying the k most similar training instances. it is non parametric while logistic regression is parametric it Learns a linear decision boundary by estimating coefficients (weights) that relate input features to the log-odds of the outcome.
+
+K-NN Assumes local similarity implies same class and relies on meaningful distance metrics.
+wnile logistic regression Assumes a linear relationship between log-odds of the outcome and features its Observations are independent.
+
+K-NN is Highly sensitive, the distance calculations are dominated by features with larger scale while logistic regression is moderately sensitive,While coefficients adjust for scale, unscaled features can slow convergence during optimization and affect regularization (if used). 
+
+b) Building a Robust Random Forest Classification Model
+
+Process Overview:
+
+-Data Preprocessing: Handle missing values (e.g., imputation), encode categorical variables (if any), and ensure features like sodium intake or stress levels are appropriately scaled (though Random Forest is generally robust to scale).
+
+-Train-Validation-Test Split:
+
+1.Training set (~70%) for building individual decision trees.
+
+2.Validation set (~15%)d for hyperparameter tuning (e.g., number of trees, max depth, features per split).
+
+3.Test set (~15%)this is held out until final evaluation to provide an unbiased estimate of real-world performance.
+This Prevents overfitting and ensures the model’s performance metrics (accuracy, recall, etc.) are realistic and generalizable—critical in healthcare where false predictions can impact patient outcomes.
+
+
+-Model Training:
+*Train many decision trees (e.g., 100–500) on bootstrapped samples of the training data (bagging).
+*At each split, consider only a random subset of features (random subspace method), which decorrelates trees and reduces overfitting.
+
+-Ensemble Advantage
+
+Reduces variance compared to a single tree, leading to better generalization.
+
+It improves robustness by averaging predictions across diverse trees mitigating the risk of overfitting to noise or outliers in any single tree.
+
+
+-Feature Importance
+Random Forest provides feature importance scores (e.g., mean decrease in impurity or permutation importance).
+
+Healthcare value: Helps clinicians understand which factors (e.g., sodium intake, genetic markers) most influence hypertension risk—supporting interpretability, trust, and potential clinical interventions or further research.
+
+
+c) High Accuracy but Low Recall for Hypertension (Positive Class)
+Practical Interpretation for a Doctor:
+
+The model correctly classifies most patients overall (high accuracy), but fails to identify many patients who actually develop hypertension (low recall = high false negatives).
+
+
+THis means that at-risk patients may be told they’re low-risk and not receive preventative care (e.g., lifestyle counseling, monitoring), potentially leading to undiagnosed or delayed treatment of hypertension—a serious condition linked to heart disease and stroke.
+
+Suggested Technique to Improve Recall:
+
+Adjust the classification threshold: By default, models use a 0.5 probability threshold. Lowering this threshold (e.g., to 0.3) increases sensitivity (recall) by classifying more borderline cases as positive. This may increase false positives (lower precision), but in screening contexts, catching more true cases is often prioritized.
+
+
+
+
+
+
+
+

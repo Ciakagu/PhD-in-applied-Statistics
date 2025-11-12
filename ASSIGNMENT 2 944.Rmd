@@ -1,0 +1,694 @@
+---
+title: "assignment 2"
+author: "Hellen Ndwiga"
+date: "2025-11-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+SD18/77485/25
+
+A national malaria control program is working with Chuka University to evaluate how socioeconomic factors interact with climate variables to influence malaria burden across Kenyan subcounties. The research team has compiled datasets from the Kenya National Bureau of Statistics
+(KNBS), Kenya Meteorological Department (KMD), and hospital surveillance reports.
+a) Describe four relevant variables in this study (two climatic and two socio-economic). For each
+variable, state:
+• The likely unit of measurement,
+• A credible data source (e.g., KNBS, KMD, DHIS2),
+• One limitation in reliability or completeness, and how you would address it.
+(For reference to data sources, see KNBS (2024) Statistical Abstract; KMD Climate Data
+Portal (2023).)
+
+
+## climatic
+
+
+1. rainfall in mm per month from climate data portal and kenya metereological department.
+
+Limitation: Sparse weather station network leads to estimates for ungauged areas, creating
+
+measurement error.
+
+Mitigation: Use spatially interpolated data (e.g., from satellite sources like CHIRPS) combined 
+with KMD station data to create a continuous rainfall surface.
+
+2.average temperature in degrees celsius from kenya meterological department 
+
+Limitation: Data may have gaps for certain stations or time periods. Direct measurements may 
+
+not capture microclimates within a sub-county.
+
+Mitigation: Implement temporal interpolation (e.g., carrying forward the last observation) for 
+
+short gaps and use satellite-derived land surface temperature (LST) data to account for spatial 
+variability.
+
+
+## socio-economic
+
+
+1.Poverty Incidence	measured by Percentage (%) of population below the poverty line from the 
+
+kenya national bureau of statistics
+
+Limitation: Data from the national census, which is conducted infrequently (after every 10 
+
+years), makes the data  outdated.
+
+Mitigation: Use proxy indicators from more frequent surveys such as Demographic and Health 
+
+Surveys - DHS).
+
+
+2.Population Density measured in persons/km² obtained from Kenya National Bureau of Statistics 
+
+(KNBS).
+
+Limitation: Static census figure that doesn't account for seasonal migration, rapid urban 
+
+growth, or internal displacement.
+
+Mitigation: Use dynamic population datasets (e.g., WorldPop) that combine census data with 
+
+satellite imagery and other geospatial layers to estimate annual population distributions.
+
+b) The team must combine multiple datasets into a unified analytic file. Explain the concepts 
+
+of:
+
+• Data joins/merging,
+
+• Keys/identifiers, and
+
+• Data integrity constraints.
+
+Illustrate with an example where sub_county_code is used as the key to merge health
+
+records and climate data.
+
+Data Joins/Merging
+
+This is the process of combining two or more datasets based on a common attribute (the key). 
+
+The structure of the join determines which rows appear in the final dataset.
+
+Types:
+
+Inner Join: Keeps only the rows where the key is present in all datasets.
+
+Left Join: Keeps all rows from the left (primary) dataset and brings in matching rows from the 
+
+right dataset. Non-matching rows from the right are filled with missing values (NA).
+
+In this study, a Left Join is typically used, with the master list of sub-counties as the left 
+
+table, to ensure no sub-county is lost even if it lacks climate or health data for a specific 
+
+period.
+
+Keys/Identifiers
+
+A key is a unique identifier (a variable or set of variables) that reliably links a record in 
+
+one table to a record in another. It must be consistent across all datasets.
+
+Example: sub_county_code is ideal. Using names (e.g., "Kikuyu") is risky due to potential 
+
+spelling inconsistencies ("Kikuyu" vs "Kikuyu Town"). A standardized code ensures accurate 
+
+matching.
+
+Data Integrity Constraints
+
+These are rules to ensure the accuracy and reliability of the data before and after a join.
+
+Key Constraints:
+
+Primary Key: A unique identifier in a single table (e.g., sub_county_code in the sub-county 
+
+master list must be unique).
+
+Foreign Key: An identifier in a second table that refers to a primary key in another (e.g., 
+
+sub_county_code in the climate data table must exist in the sub-county master list).
+
+Other Constraints: Data type consistency (e.g., code is text, not a number), and range checks 
+
+(e.g., rainfall values are positive).
+
+Health Data Table:
+
+
+sub_county_code	malaria_cases
+SC001	150
+SC002	89
+SC003	240
+Climate Data Table:
+
+
+sub_county_code	avg_rainfall
+SC001	210
+SC003	180
+SC004	300
+A Left Join (Health Data on the left) on sub_county_code would result in:
+
+
+
+sub_county_code	malaria_cases	avg_rainfall
+SC001	150	210
+SC002	89	NA
+SC003	240	180
+
+
+This highlights a data integrity issue: SC002 is missing climate data, which must be addressed 
+
+in the preparation phase.
+
+
+
+c) Outline the steps you would take to prepare the data for regression modeling, including:
+• Detection and handling of missing data,
+• Identification of multicollinearity among predictors,
+• Normalization or transformation of skewed variables,
+• Splitting the dataset into training and testing sets.
+Explain how each step supports accurate inference and model reproducibility.
+
+
+
+# Load required libraries
+```{r}
+library(caret)
+library(tidyverse)
+library(corrplot)
+library(car) # For VIF
+library(mice) # For missing data imputation
+library(gridExtra)
+```
+
+
+
+# Set seed for reproducibility
+
+```{r}
+set.seed(123)
+```
+
+# 1. CREATE SIMULATED DATASET 
+```{r}
+n <- 200
+malaria_data <- tibble(
+  sub_county_code = paste0("SC", sprintf("%03d", 1:n)),
+  malaria_cases = rpois(n, lambda = 50) + round(rnorm(n, 100, 30)),
+  rainfall_mm = round(rgamma(n, shape = 2, scale = 50), 1),
+  temperature_c = round(rnorm(n, 25, 3), 1),
+  poverty_rate = round(runif(n, 10, 80), 1),
+  population_density = round(rgamma(n, shape = 2, scale = 500)),
+  health_access_index = round(runif(n, 0.1, 1.0), 2),
+  urbanization_rate = round(runif(n, 10, 95), 1)
+)
+```
+
+
+# 2. INTRODUCE REALISTIC MISSING VALUES AND ISSUES
+```{r}
+malaria_data$rainfall_mm[sample(1:n, 15)] <- NA
+malaria_data$poverty_rate[sample(1:n, 10)] <- NA
+malaria_data$population_density[sample(1:n, 8)] <- NA
+malaria_data$malaria_cases[sample(1:n, 5)] <- NA
+```
+
+
+
+# Add some outliers
+```{r}
+malaria_data$rainfall_mm[10] <- 500  # Extreme rainfall
+malaria_data$population_density[25] <- 50000  # Extreme density
+
+```
+
+
+# Display initial data summary
+```{r}
+cat("Initial Data Summary:\n")
+print(summary(malaria_data))
+```
+
+
+# 3. DETECTION AND HANDLING OF MISSING DATA
+```{r}
+cat("\n=== MISSING DATA ANALYSIS ===\n")
+missing_summary <- sapply(malaria_data, function(x) sum(is.na(x)))
+print("Missing values per variable:")
+print(missing_summary)
+
+```
+
+
+# Visualize missing data pattern
+```{r}
+missing_plot <- malaria_data %>%
+  mutate(id = row_number()) %>%
+  gather(key = "variable", value = "value", -sub_county_code, -id) %>%
+  mutate(is_missing = is.na(value)) %>%
+  ggplot(aes(x = variable, y = id, fill = is_missing)) +
+  geom_tile() +
+  scale_fill_manual(values = c("FALSE" = "lightblue", "TRUE" = "red")) +
+  labs(title = "Missing Data Pattern", x = "Variables", y = "Observations") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+print(missing_plot)
+```
+
+
+
+# Handle missing data using multiple imputation
+```{r}
+cat("\nHandling missing data with multiple imputation...\n")
+imputed_data <- mice(malaria_data %>% select(-sub_county_code), 
+                     m = 3, maxit = 10, method = 'pmm', printFlag = FALSE)
+malaria_clean <- complete(imputed_data, 1)
+malaria_clean$sub_county_code <- malaria_data$sub_county_code
+
+cat("Missing values after imputation:\n")
+print(sapply(malaria_clean, function(x) sum(is.na(x))))
+```
+
+
+
+# 4. IDENTIFICATION AND HANDLING OF MULTICOLLINEARITY
+```{r}
+cat("\n=== MULTICOLLINEARITY ANALYSIS ===\n")
+
+# Calculate correlation matrix
+predictor_vars <- malaria_clean %>% 
+  select(-sub_county_code, -malaria_cases)
+
+correlation_matrix <- cor(predictor_vars, use = "complete.obs")
+
+```
+
+
+# Visualize correlation matrix
+```{r}
+corr_plot <- corrplot(correlation_matrix, method = "color", type = "upper",
+                      order = "hclust", tl.col = "black", tl.srt = 45,
+                      title = "Predictor Variable Correlation Matrix",
+                      mar = c(0, 0, 1, 0))
+```
+
+
+
+# Calculate Variance Inflation Factor (VIF)
+```{r}
+# First, fit a linear model
+lm_model <- lm(malaria_cases ~ rainfall_mm + temperature_c + poverty_rate + 
+                 population_density + health_access_index + urbanization_rate,
+               data = malaria_clean)
+
+vif_results <- vif(lm_model)
+cat("Variance Inflation Factors (VIF):\n")
+print(vif_results)
+```
+
+
+
+# Identify highly correlated variables (VIF > 5 or 10)
+```{r}
+high_vif <- names(vif_results[vif_results > 5])
+if(length(high_vif) > 0) {
+  cat("Variables with high multicollinearity (VIF > 5):", paste(high_vif, collapse = ", "), "\n")
+} else {
+  cat("No severe multicollinearity detected (all VIF < 5)\n")
+}
+```
+
+
+
+# 5. NORMALIZATION AND TRANSFORMATION OF SKEWED VARIABLES
+```{r}
+cat("\n=== VARIABLE TRANSFORMATION ===\n")
+
+```
+
+
+# Function to check skewness
+```{r}
+check_skewness <- function(x) {
+  n <- length(x)
+  skew <- (sum((x - mean(x))^3)/n)/(sum((x - mean(x))^2)/n)^(3/2)
+  return(skew)
+}
+
+```
+
+
+# Check skewness for all numeric variables
+```{r}
+skewness_results <- sapply(malaria_clean |> select_if(is.numeric), check_skewness)
+cat("Skewness before transformation:\n")
+print(round(skewness_results, 3))
+
+```
+
+
+# Create pre-transformation plots
+```{r}
+plots_before <- list()
+numeric_vars <- names(malaria_clean |> select_if(is.numeric))
+
+for(i in 1:length(numeric_vars)) {
+  var <- numeric_vars[i]
+  plots_before[[i]] <- ggplot(malaria_clean, aes_string(x = var)) +
+    geom_histogram(fill = "lightblue", color = "black", bins = 20) +
+    labs(title = paste("Before:", var)) +
+    theme_minimal()
+}
+```
+
+
+
+# Apply transformations to highly skewed variables
+```{r}
+malaria_transformed <- malaria_clean
+```
+
+
+
+# Log transform right-skewed variables (skewness > 1)
+
+```{r}
+if(abs(skewness_results["malaria_cases"]) > 1) {
+  malaria_transformed$malaria_cases_log <- log(malaria_clean$malaria_cases + 1)
+  cat("Applied log transformation to malaria_cases\n")
+}
+
+if(abs(skewness_results["rainfall_mm"]) > 1) {
+  malaria_transformed$rainfall_mm_log <- log(malaria_clean$rainfall_mm + 1)
+  cat("Applied log transformation to rainfall_mm\n")
+}
+
+if(abs(skewness_results["population_density"]) > 1) {
+  malaria_transformed$population_density_log <- log(malaria_clean$population_density + 1)
+  cat("Applied log transformation to population_density\n")
+}
+```
+
+
+# Check skewness after transformation
+```{r}
+skewness_after <- sapply(malaria_transformed %>% 
+                          select(contains("_log")), check_skewness)
+if(length(skewness_after) > 0) {
+  cat("Skewness after transformation:\n")
+  print(round(skewness_after, 3))
+}
+
+```
+
+# Create post-transformation plots
+```{r}
+plots_after <- list()
+log_vars <- names(malaria_transformed %>% select(contains("_log")))
+
+for(i in 1:length(log_vars)) {
+  var <- log_vars[i]
+  orig_var <- str_remove(var, "_log")
+  plots_after[[i]] <- ggplot(malaria_transformed, aes_string(x = var)) +
+    geom_histogram(fill = "lightgreen", color = "black", bins = 20) +
+    labs(title = paste("After:", var), x = orig_var) +
+    theme_minimal()
+}
+```
+
+
+# Combine before/after plots
+
+```{r}
+if(length(plots_before) > 0 & length(plots_after) > 0) {
+  grid.arrange(grobs = c(plots_before[1:min(3, length(plots_before))], 
+                         plots_after[1:min(3, length(plots_after))]), 
+               ncol = 2)
+}
+```
+
+
+# 6. SPLITTING DATASET INTO TRAINING AND TESTING SETS
+```{r}
+cat("\n=== DATA SPLITTING ===\n")
+
+```
+
+# Prepare final dataset for modeling
+```{r}
+final_data <- malaria_transformed |>
+  mutate(malaria_cases = ifelse(exists("malaria_cases_log"), 
+                               malaria_cases_log, malaria_cases),
+         rainfall_mm = ifelse(exists("rainfall_mm_log"), 
+                             rainfall_mm_log, rainfall_mm),
+         population_density = ifelse(exists("population_density_log"), 
+                                    population_density_log, population_density)) |>
+  select(-contains("_log"))
+
+```
+
+# Remove sub_county_code for modeling (keep as identifier if needed)
+```{r}
+model_data <- final_data |> select(-sub_county_code)
+```
+
+
+# Split data (80% training, 20% testing)
+```{r}
+train_index <- createDataPartition(model_data$malaria_cases, 
+                                  p = 0.8, list = FALSE)
+train_data <- model_data[train_index, ]
+test_data <- model_data[-train_index, ]
+
+cat("Data splitting results:\n")
+cat("Training set size:", nrow(train_data), "observations\n")
+cat("Testing set size:", nrow(test_data), "observations\n")
+cat("Total observations:", nrow(model_data), "\n")
+
+```
+
+# 7. FINAL DATA QUALITY CHECK
+```{r}
+cat("\n=== FINAL DATA QUALITY CHECK ===\n")
+cat("Training data summary:\n")
+print(summary(train_data))
+
+cat("\nTesting data summary:\n")
+print(summary(test_data))
+
+```
+
+# Save the processed datasets for reproducibility
+```{r}
+write.csv(train_data, "malaria_train_data.csv", row.names = FALSE)
+write.csv(test_data, "malaria_test_data.csv", row.names = FALSE)
+
+```
+
+# Save the processing code and parameters
+```{r}
+processing_log <- list(
+  timestamp = Sys.time(),
+  seed_used = 123,
+  missing_data_method = "Multiple Imputation (MICE)",
+  imputation_method = "Predictive Mean Matching",
+  vif_threshold = 5,
+  skewness_threshold = 1,
+  train_test_split = "80/20",
+  transformations_applied = names(skewness_after)
+)
+
+```
+
+cat("\nProcessing complete! Datasets saved and ready for regression modeling.\n")
+
+
+
+# Example of building regression model with prepared data
+```{r}
+final_model <- lm(malaria_cases ~ ., data = train_data)
+summary(final_model)
+```
+
+
+# Evaluate on test set
+```{r}
+predictions <- predict(final_model, newdata = test_data)
+test_rmse <- sqrt(mean((predictions - test_data$malaria_cases)^2))
+cat("Test RMSE:", test_rmse, "\n")
+
+```
+
+################
+
+Key Outputs and Interpretation:
+
+1. Missing Data Handling
+
+The code identifies missing values and uses Multiple Imputation (MICE)
+
+This prevents bias from complete case analysis
+
+The pattern of missingness is visualized for transparency
+
+
+
+2. Multicollinearity Check
+
+VIF values > 5 indicate potential multicollinearity issues
+
+High correlations between predictors can make coefficient estimates unstable
+
+You might consider removing or combining highly correlated variables
+
+
+3. Variable Transformation
+
+Log transformation reduces skewness in variables like malaria cases and rainfall
+
+
+This helps meet regression assumptions and improves model performance
+
+The +1 prevents issues with zero values
+
+
+4. Train-Test Split
+
+80/20 split ensures model evaluation on unseen data
+
+Prevents overfitting and provides realistic performance estimates
+
+The random seed ensures reproducibility
+
+Next Steps for Regression Modeling:
+r
+# Example of building regression model with prepared data
+```{r}
+final_model <- lm(malaria_cases ~ ., data = train_data)
+summary(final_model)
+
+```
+
+
+# Evaluate on test set
+```{r}
+predictions <- predict(final_model, newdata = test_data)
+test_rmse <- sqrt(mean((predictions - test_data$malaria_cases)^2))
+cat("Test RMSE:", test_rmse, "\n")
+#This comprehensive preparation ensures your regression model will be robust, interpretable, and reproducible - exactly what's needed for the malaria burden study.
+
+```
+
+
+
+d) You are given a tidy dataset in either R or Python with variables:
+| sub_county | rainfall_mm | temp_c | literacy_rate | malaria_rate |
+Write code to:
+1. Create a new variable climate_stress_index = rainfall_mm / temp_c
+2. Select only records where literacy_rate < 70
+3. Group the filtered data by sub_county and compute the average malaria_rate and
+climate_stress_index
+4. Export the summarized results to a CSV file.
+
+
+```{r}
+set.seed(42)
+
+n <- 50
+sub_county <- paste0("SubCounty_", 1:n)
+rainfall_mm <- round(runif(n, 50, 300), 1)
+temp_c <- round(runif(n, 18, 35), 1)
+literacy_rate <- round(runif(n, 40, 95), 1)
+
+# Simulate malaria_rate with plausible relationships
+malaria_rate <- (
+  0.1 +
+  0.0008 * rainfall_mm +
+  0.004 * temp_c -
+  0.003 * literacy_rate +
+  rnorm(n, 0, 0.05)
+)
+malaria_rate <- pmax(0, pmin(1, malaria_rate))  # clip to [0,1]
+malaria_rate <- round(malaria_rate, 3)
+
+# Create tidy data frame
+malaria_data <- data.frame(
+  sub_county,
+  rainfall_mm,
+  temp_c,
+  literacy_rate,
+  malaria_rate
+)
+
+# View first few rows
+head(malaria_data)
+```
+
+
+
+
+# Load required package
+```{r}
+library(dplyr)
+```
+
+# Assuming your data frame is named 'malaria'
+# 1. Create new variable climate_stress_index
+```{r}
+malaria_data |>
+  dplyr::mutate(malaria_data, climate_stress_index = rainfall_mm/temp_c)
+
+```
+
+
+# 2. Filter records where literacy_rate < 70
+```{r}
+ malaria_data |>
+   dplyr::filter(literacy_rate < 70)
+
+```
+
+#Group the filtered data by sub_county and compute the average malaria_rate and
+climate_stress_index
+```{r}
+ malaria_data |>
+   dplyr::mutate(climate_stress_index = rainfall_mm / temp_c)
+```
+
+```{r}
+library(dplyr)
+
+# Create climate stress index (rainfall_mm / temp_c)
+malaria_data$climate_stress_index <- malaria_data$rainfall_mm + malaria_data$temp_c
+
+# Add region column
+set.seed(123)
+malaria_data$region <- sample(c("North", "South", "East", "West"), 
+                              size = nrow(malaria_data), 
+                              replace = TRUE)
+
+# Now summarize including the new column
+result <- malaria_data |>
+  group_by(region) |>
+  summarise(
+    avg_rainfall = mean(rainfall_mm),
+    avg_temp = mean(temp_c),
+    avg_literacy = mean(literacy_rate),
+    avg_malaria_rate = mean(malaria_rate, na.rm = TRUE),
+    avg_climate_stress_index = mean(climate_stress_index, na.rm = TRUE),
+    .groups = 'drop'
+  )
+
+write.csv(result, "summarized_malaria_data.csv", row.names = FALSE)
+print("Data saved successfully!")
+print(result)
+```
+```
+

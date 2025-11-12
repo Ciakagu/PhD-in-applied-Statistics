@@ -1,0 +1,264 @@
+---
+title: "944 Assignment"
+author: "Hellen Ndwiga"
+date: "2025-11-05"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+SD18/77485/25
+
+### You are a data scientist consulting for the Nairobi City County government. The public health department has collected a dataset on patient wait times and service outcomes from 20 public clinics over the last year. Your task is to analyze this data to identify bottlenecks and improve service delivery. The analysis will be conducted by a small team.
+
+### a)	Data Science Workflow for Public Policy 
+Explain the key stages of the data science workflow you would follow. For each stage, describe
+one specific action you would take to ensure that your final analysis is trustworthy and that
+your recommendations can be replicated and validated by county officials.
+
+The data science workflow follows these stages:
+
+1.	Problem Definition: Conduct stakeholder interviews (with clinic staff and county health 
+
+officials) to refine the scope so that the analysis addresses real operational and policy 
+
+needs.
+
+2.	Data Acquisition:Document the sources of all datasets, collection methods, and any known 
+
+limitations (missing data, measurement errors).
+
+3.	Data Wrangling: Standardize Data Formats: Use reproducible scripts (R) rather than manual 
+
+edits. Capture all cleaning steps in RMarkdown documents, so that any analyst can re-run and 
+
+audit the process.
+
+4.	Exploratory Data Analysis: Present initial findings (plots, tables) to the team and county 
+
+
+officials—invite feedback to identify areas needing deeper investigation or corrections for 
+
+biases.
+
+5.	Feature Engineering:Construct new features like "Staff-to-Patient Ratio" to capture factors 
+that could influence wait times.
+
+6.	Modeling: Choose the right algorithms for the task, such as regression models for 
+
+predicting wait times or decision trees to identify factors that significantly impact service 
+
+outcomes.
+
+7.	Evaluation: Based on the analysis, recommend targeted interventions, such as staffing 
+
+adjustments during peak hours, improved appointment scheduling systems, or additional patient 
+
+flow management tools.
+
+8.	communication and reporting:Write a detailed report summarizing the methodology, key 
+
+insights, and actionable recommendations. Ensure the report is jargon-free and accessible to 
+
+non-technical stakeholders.
+
+9.	Monitoring: Set up ongoing data collection mechanisms to track the effectiveness of 
+
+implemented changes, using KPIs such as wait times and patient satisfaction.
+
+### b) Tool Justification: R vs. Python
+Python is the most popular language for data science due to:
+•	Readability: Clear, intuitive syntax
+
+•	Versatility: Applicable across the entire data science workflow
+
+•	Rich Ecosystem: Extensive libraries and frameworks
+however i'll use R because:- Rstudio is preferable because
+
+I'll be able to :- 
+
+. Create publication-quality visualizations. R’s ggplot2 allows for very clean, easily 
+
+interpretable graphics suitable for reports/presentations to officials.
+
+•	Perform specialized statistical analyses. Built-in functions (e.g., lm for regression) 
+
+produce results that are simple to interpret and communicate, a major advantage for policy 
+
+work.
+
+•	Create interactive reports with R Markdown. R is commonly used among statisticians and 
+
+epidemiologists, so public sector officials may already have familiarity or infrastructure for 
+
+R.
+###The core analysis requires data cleaning, creating clear visualizations for a non-technical audience, and building a regression model to identify factors influencing wait times.
+The required packages are
+
+```{r}
+library(tidyverse)     ## for data manipulation
+library(ggplot2)       ## for data visualization
+library(renv)          ##for robust cross-platform directory listing
+library(ggstatsplot)   ## Integrates statistical tests directly into your visualizations
+library(patchwork)     ## Easily combines multiple plots into cohesive layouts
+library(gganimate)     ## Adds dynamic animations to your visualizations
+library(ggtext)        ## Adds rich test formatting capabilities to your plots
+library(plotly)        ## Convert to interactive plot
+library(easystats)     ## For statistical modeling & reporting
+library(summarytools)  ## for summarizing data
+library(sjmisc)        ## for data manipulation
+library(geomtextpath)  ## combines text & paths for creative labeling along lines
+library(ggdist)        ## Enhance visual representation of distribution & uncertainty
+library(gghighlight)   ## Highlights specific data points or groups in your plots
+library(ggiraph)       ## Makes your plots interactive with hover & click features
+library(ggpubr)        ## Simplifies ggplot2-based visualization and statistical comparisons
+library(esquisse)      ## GUI for creating ggplot2 plots interactively
+library(caret)         ## for machine learning
+```
+
+### c) Project Setup in an Integrated Development Environment (IDE) 
+Describe the steps to set up a new project for this analysis in either RStudio or Jupyter Notebooks.
+Your answer should cover:
+•	Initial project and folder structure.
+•	How you would use the IDE's features to write and debug a data cleaning script.
+•	One method for ensuring another researcher can easily run your code on their own computer (e.g., managing package dependencies).
+
+```
+### project Structure
+Nairobi_Clinic_Analysis/
+├── Nairobi_Clinic_Analysis.Rproj
+├── data/
+│   ├── raw/
+│   └── processed/
+├── scripts/
+│   ├── 01_data_cleaning.R
+│   └── 03_regression_model.R
+├── reports/
+│   └── policy_brief.Rmd
+└── renv.lock
+```
+
+In RStudio:
+Create a New Project:
+
+Use File > New Project to create a self-contained environment.
+
+This enables version control and package management via renv.
+
+Write a Data Cleaning Script:
+
+Open a new .R script in the Source pane (scripts/data_cleaning.R).
+
+Write code using Tidyverse, e.g., library(dplyr); cleaned <- raw |>filter(...).
+
+Debugging:
+
+Use “Run” to execute code line-by-line or in chunks.
+
+RStudio’s Environment tab lets you inspect variables, objects, and dataframe summaries.
+
+Use Breakpoints in scripts for step-through debugging.
+
+Version Control:
+
+Integrate with Git directly via the RStudio interface (commit, push, pull).
+
+C. Ensuring Easy Reproducibility for Other Researchers
+
+Method:
+
+Environment Management + Documentation
+```{r}
+#renv::init(force=True)
+
+#renv::snapshot()
+
+#Another user can run renv::restore() to replicate the environment exactly.
+
+```
+
+### d) Version Control for Accountability 
+You need to track the changes made to the analysis script over time. Explain how initializing a 
+Git repository for the project folder contributes to reproducibility. Provide the sequence of 
+
+Git commands you would use to:
+
+1.	Track a newly created script called data_cleaning.R.
+
+2.	Save (commit) the current state of the script with a descriptive message.
+
+3.	Upload (push) these committed changes to a remote repository on GitHub.
+
+How Git Improves Reproducibility
+
+Tracks Changes: Every edit is logged so you know what was changed, by whom, and when.
+
+Restores Past States: You can roll back to earlier, working versions if errors are introduced.
+
+Collaboration: Multiple users can contribute without overwriting each other’s work; changes are 
+merged and documented.
+
+Transparency: All changes are auditable—essential for public accountability in policy-related 
+
+analysis.
+
+### Git Command Sequence
+
+Step 0: Initialize the repository
+
+In your project folder:
+
+bash
+
+git init
+
+Step 1: Track the newly created script
+
+Assume the file is named data_cleaning.R and is in your project root.
+
+git add data_cleaning.R
+
+Step 2: Save (commit) the current state with a descriptive message
+
+bash
+
+git commit -m "Initial data cleaning script: sets up preprocessing for clinic wait times
+
+Step 3: Link to your remote GitHub repository and upload (push)
+
+Suppose your GitHub repo is at https://github.com/ciakagu/projectname.git 
+
+First, add the remote:
+
+bash
+
+git remote add origin https://github.com/ciakagu/projectname.git
+
+Then upload your commit to GitHub (assuming your branch is called main):
+
+git push -u origin main
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
